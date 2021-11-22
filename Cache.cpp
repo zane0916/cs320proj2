@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void directmapcache(unsigned long long address, int* cache, &int tothits, &int totmiss, int cachesize) {
+void directmapcache(unsigned long long address, int* cache, int &tothits, int &totmiss, int cachesize) {
   int i = address % (*cache).size();
   address = address >> 5;
   if (cachesize == 1) {
