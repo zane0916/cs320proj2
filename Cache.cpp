@@ -32,8 +32,8 @@ void directmapcache(unsigned long long address, int* cache, int &tothits, int ca
     cache[i] = address;
   }
 }
-/*
-void setcache(unsigned long long addr, int** cache, int &tothits, vector<int> ldr, int numways) {
+
+void setcache(unsigned long long addr, int** cache, int &tothits, int numways) {
   addr >> 5;
   int i;
   int found = -1;
@@ -53,31 +53,41 @@ void setcache(unsigned long long addr, int** cache, int &tothits, vector<int> ld
     i = addr % 32;
     addr = addr >> 5;
   }
-  for (int f = 0; f < numways; f++) {
-    if (cache[f][i] == addr) {
+  
+  for (int way = 1; way < numways + 1; way++) {
+    //if found
+    if (cache[way][i] == addr) {
       tothits += 1;
-      for (int temp = 0; temp < ldr.size(); temp++) {
-	if (ldr[temp] == addr) {
-	  found = temp;
+      //find location in lru
+      for (int j = 0; j < numways; j++) {
+	if (cache[0][j] == way) {
+	  found = j;
 	  break;
 	}
       }
-      ldr.erase(ldr.begin() + found);
-      ldr.insert(ldr.begin(), addr);
-    }
-  }
-  int oldest = -1;
-  for (int f = 0; f < numways; f++) {
-    for (int temp = 0; temp < 512; temp++) {
-      if (ldr[temp] == cache[f][i] && oldest < temp) {
-	oldest = temp;
+      //remove and insert in front of lru
+      if (found > 0) {
+	for (int temp = found - 1; temp >= 0; temp--) {
+	  cache[0][temp + 1] = cache[0][temp];
+	}
+	cache[0][0] = way;
+	break;
       }
     }
   }
-  ldr.erase(ldr.begin() + oldest);
-  ldr.insert(ldr.begin(), addr);
+  //otherwise, not found
+  if (found == -1) {
+    //replace lru at end of lru queue
+    int replace = cache[0][numways - 1];
+    for (int temp = numways - 2; temp >= 0; temp--) {
+      cache[0][temp + 1] = cache[0][temp];
+    }
+    cache[0][0] = replace;
+    //replace the replace value in cache with addr
+    cache[replace][i] = addr;
+  }
 }
-*/
+
 int main(int argc, char *argv[]) {
   unsigned long long addr;
   string behavior;
@@ -93,37 +103,60 @@ int main(int argc, char *argv[]) {
   int direcmaphits4 = 0;
   int direcmaphits16 = 0;
   int direcmaphits32 = 0;
-  int direcmapmiss1 = 0;
-  int direcmapmiss4 = 0;
-  int direcmapmiss16 = 0;
-  int direcmapmiss32 = 0;
-  /*
+  
   //set associative is 16KB, so for 2, 4, 8, 16 ways
-  int** set2 = new int*[2];
-  for (int temp = 0; temp < 2; temp++) {
+  int** set2 = new int*[3];
+  set2[0] = new int[2];
+  for (int i = 0; i < 2; i++) {
+    set2[0][i] = 0;
+  }
+  for (int temp = 1; temp < 3; temp++) {
     set2[temp] = new int[256];
+    for (int j = 0; j < 256; j++) {
+      set2[temp][j] = 0;
+    }
   }
-  int** set4 = new int*[4];
-  for (int temp = 0; temp < 4; temp++) {
+  
+  int** set4 = new int*[5];
+  set4[0] = new int[4];
+  for (int i = 0; i < 4; i++) {
+    set4[0][i] = 0;
+  }
+  for (int temp = 1; temp < 5; temp++) {
     set4[temp] = new int[128];
+    for (int j = 0; j < 128; j++) {
+      set4[temp][j] = 0;
+    }
   }
-  int** set8 = new int*[8];
-  for (int temp = 0; temp < 8; temp++) {
+
+  int** set8 = new int*[9];
+  set8[0] = new int[8];
+  for (int i = 0; i < 8; i++) {
+    set8[0][i] = 0;
+  }
+  for (int temp = 1; temp < 9; temp++) {
     set8[temp] = new int[64];
+    for (int j = 0; j < 64; j++) {
+      set8[temp][j] = 0;
+    }
   }
-  int** set16 = new int*[16];
-  for (int temp = 0; temp < 16; temp++) {
+
+  int** set16 = new int*[17];
+  set16[0] = new int[16];
+  for (int i = 0; i < 16; i++) {
+    set16[0][i] = 0;
+  }
+  for (int temp = 1; temp < 17; temp++) {
     set16[temp] = new int[32];
+    for (int j = 0; j < 32; j++) {
+      set16[temp][j] = 0;
+    }
   }
   int sethit2 = 0;
   int sethit4 = 0;
   int sethit8 = 0;
   int sethit16 = 0;
-  vector<int> ldr2 (512, 0);
-  vector<int> ldr4 (512, 0);
-  vector<int> ldr8 (512, 0);
-  vector<int> ldr16 (512, 0);
-  */
+  
   ifstream infile(argv[1]);
   ofstream outfile(argv[2]);
 
@@ -136,69 +169,64 @@ int main(int argc, char *argv[]) {
     directmapcache(addr, direcmap4, direcmaphits4, 4);
     directmapcache(addr, direcmap16, direcmaphits16, 16);
     directmapcache(addr, direcmap32, direcmaphits32, 32);
-    /*
-    setcache(addr, set2, sethit2, ldr2, 2);
-    setcache(addr, set4, sethit4, ldr4, 4);
-    setcache(addr, set8, sethit8, ldr8, 8);
-    setcache(addr, set16, sethit16, ldr16, 16);   
-    */
+    
+    setcache(addr, set2, sethit2, 2);
+    setcache(addr, set4, sethit4, 4);
+    setcache(addr, set8, sethit8, 8);
+    setcache(addr, set16, sethit16, 16);   
+    
   }
 
   outfile << direcmaphits1 << "," << numlines << "; ";
   outfile << direcmaphits4 << "," << numlines << "; ";
   outfile << direcmaphits16 << "," << numlines << "; ";
-  outfile << direcmaphits32 << "," << numlines << "; " << endl;
+  outfile << direcmaphits32 << "," << numlines << ";" << endl;
 
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; " << endl;
-
-  outfile << "0," << numlines << "; " << endl;
-  outfile << "0," << numlines << "; " << endl;
-  
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; " << endl;
-
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; " << endl;
-  
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; ";
-  outfile << "0," << numlines << "; " << endl;
-  /*
   outfile << sethit2 << "," << numlines << "; ";
   outfile << sethit4 << "," << numlines << "; ";
   outfile << sethit8 << "," << numlines << "; ";
-  outfile << sethit16 << "," << numlines << "; " << endl;
-  */
+  outfile << sethit16 << "," << numlines << ";" << endl;
+
+  outfile << "0," << numlines << ";" << endl;
+  outfile << "0," << numlines << ";" << endl;
+  
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << ";" << endl;
+
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << ";" << endl;
+  
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << "; ";
+  outfile << "0," << numlines << ";" << endl;
+
   delete[] direcmap1;
   delete[] direcmap4;
   delete[] direcmap16;
   delete[] direcmap32;
-  /*
-  for (int temp = 0; temp < 2; temp ++) {
+
+  for (int temp = 0; temp < 3; temp ++) {
     delete[] set2[temp];
   }
   delete[] set2;
-  for (int temp = 0; temp < 4; temp ++) {
+  for (int temp = 0; temp < 5; temp ++) {
     delete[] set4[temp];
   }
   delete[] set4;
-  for (int temp = 0; temp < 8; temp ++) {
+  for (int temp = 0; temp < 9; temp ++) {
     delete[] set8[temp];
   }
   delete[] set8;
-  for (int temp = 0; temp < 16; temp ++) {
+  for (int temp = 0; temp < 17; temp ++) {
     delete[] set16[temp];
   }
   delete[] set16;
-  */
+
   infile.close();
   outfile.close();
   return 0;
